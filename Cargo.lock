@@ -4,11 +4,12 @@ version = 4
 
 [[package]]
 name = "bijoy52-typer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "enigo",
  "rdev",
  "serde_json",
+ "winapi",
 ]
 
 [[package]]

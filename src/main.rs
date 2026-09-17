@@ -5,6 +5,13 @@
 // only named physical keys).
 //
 // No network calls, no telemetry. Only acts on keys while Bangla mode is on.
+//
+// Runs with no console window (a background utility that requires a visible
+// terminal defeats the point). That means `println!`/`eprintln!` would
+// panic (there's no stdout/stderr handle to write to), so toggle feedback
+// is a beep instead, and the rare error paths log to a file next to the
+// executable rather than to a console nobody can see.
+#![windows_subsystem = "windows"]
 
 mod engine;
 
@@ -13,6 +20,31 @@ use enigo::{Enigo, Keyboard, Settings};
 use rdev::{grab, Event, EventType, Key};
 
 const TOGGLE_KEY: Key = Key::KeyB; // Ctrl+Alt+B toggles Bangla mode
+const QUIT_KEY: Key = Key::KeyQ; // Ctrl+Alt+Q quits (no console left to Ctrl+C)
+
+fn log_error(msg: &str) {
+    use std::io::Write;
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("bijoy52-typer.log")))
+        .unwrap_or_else(|| "bijoy52-typer.log".into());
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{msg}");
+    }
+}
+
+#[cfg(windows)]
+fn beep(ok: bool) {
+    use winapi::um::winuser::{MessageBeep, MB_ICONEXCLAMATION, MB_OK};
+    unsafe {
+        MessageBeep(if ok { MB_OK } else { MB_ICONEXCLAMATION });
+    }
+}
+#[cfg(not(windows))]
+fn beep(_ok: bool) {
+    // No portable equivalent wired up yet on Linux/macOS — toggling is
+    // silent there for now. See README's "Known limitations".
+}
 
 #[derive(Default)]
 struct Modifiers {
@@ -57,12 +89,16 @@ fn main() {
     // separate thread owns `Enigo` and actually calls `.text()`.
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     std::thread::spawn(move || {
-        let mut enigo = Enigo::new(&Settings::default()).expect(
-            "failed to initialize input simulator (this needs a normal desktop session)",
-        );
+        let mut enigo = match Enigo::new(&Settings::default()) {
+            Ok(e) => e,
+            Err(err) => {
+                log_error(&format!("failed to initialize input simulator: {err:?}"));
+                return;
+            }
+        };
         for text in rx {
             if let Err(e) = enigo.text(&text) {
-                eprintln!("Bijoy52: failed to inject text {text:?}: {e:?}");
+                log_error(&format!("failed to inject text {text:?}: {e:?}"));
             }
         }
     });
@@ -77,9 +113,9 @@ fn main() {
         mods: Modifiers::default(),
     });
 
-    println!("Bijoy52 Typer running.");
-    println!("Press Ctrl+Alt+B to toggle বাংলা (Bijoy52) mode.");
-    println!("Close this window, or Ctrl+C in it, to quit.");
+    // Confirms the app actually launched — there's no window to show that
+    // otherwise. Ctrl+Alt+B: one beep = ON, two = OFF. Ctrl+Alt+Q: quit.
+    beep(true);
 
     let callback = move |event: Event| -> Option<Event> {
         let mut guard = state.borrow_mut();
@@ -104,17 +140,18 @@ fn main() {
                         mods.meta = true;
                         return Some(event);
                     }
+                    k if k == QUIT_KEY && mods.ctrl && mods.alt => {
+                        std::process::exit(0); // Ctrl+Alt+Q: clean exit, no console to Ctrl+C
+                    }
                     k if k == TOGGLE_KEY && mods.ctrl && mods.alt => {
                         *bangla_mode = !*bangla_mode;
                         engine.reset_partial();
-                        println!(
-                            "{}",
-                            if *bangla_mode {
-                                "বাংলা (Bijoy52) mode: ON"
-                            } else {
-                                "English mode: OFF"
-                            }
-                        );
+                        // One beep = mode ON, two beeps = mode OFF. There's
+                        // no window to print "ON"/"OFF" into.
+                        beep(true);
+                        if !*bangla_mode {
+                            beep(true);
+                        }
                         return None; // swallow the toggle keystroke itself
                     }
                     _ => {}
@@ -172,13 +209,12 @@ fn main() {
     };
 
     if let Err(err) = grab(callback) {
-        eprintln!("Failed to start global key grab: {err:?}");
-        eprintln!(
-            "On macOS: grant this app Accessibility access in System Settings and re-run."
-        );
-        eprintln!(
-            "On Linux: make sure your user is in the `input` group, or run with sudo."
-        );
+        log_error(&format!(
+            "Failed to start global key grab: {err:?}. \
+             On macOS: grant Accessibility access in System Settings and re-run. \
+             On Linux: make sure your user is in the `input` group, or run with sudo."
+        ));
+        beep(false);
         std::process::exit(1);
     }
 }

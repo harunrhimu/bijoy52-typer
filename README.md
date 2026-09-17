@@ -19,11 +19,19 @@ three OSes instead of only Windows.
    info" → "Run anyway"**. If you want to verify the download wasn't
    tampered with, check its SHA256 hash against the one listed on the
    release page.
-2. Press **Ctrl+Alt+B** to toggle বাংলা (Bijoy52) mode on/off. The console
-   prints which mode you're in.
+2. It runs with **no visible window** — a single beep confirms it launched.
+   Press **Ctrl+Alt+B** to toggle বাংলা (Bijoy52) mode on/off: **one beep =
+   ON, two beeps = OFF**.
 3. Type Bijoy52 keystrokes in any app, exactly like the other versions of
    this tool.
-4. Close the console window (or Ctrl+C in it) to quit.
+4. Press **Ctrl+Alt+Q** to quit (there's no console window to Ctrl+C or
+   close). To have it running whenever you need it without launching it by
+   hand each time, drop a shortcut to the `.exe` in `shell:startup`
+   (`Win+R` → type `shell:startup` → Enter) so it starts automatically at
+   login — same trick the AutoHotkey version documents.
+5. If something's not working and there's no visible error (no console to
+   show one), check `bijoy52-typer.log` next to the `.exe` — that's where
+   startup/injection failures get logged instead.
 
 ## Building from source
 
@@ -66,9 +74,10 @@ a MinGW-w64 distribution on `PATH` (needed for `dlltool.exe`, e.g.
 - `cargo test` round-trips all 3,881 rules through the engine and checks
   several full words (আমি, জানি, কি, আ) — passes.
 - Live-tested on Windows: global hotkey toggle, `dj`→কি, a full sentence
-  (`gfdm ufbd`→আমি জানি), mid-sequence Backspace-then-retype, and Ctrl+A/
-  Ctrl+C passing through untouched — all confirmed working by driving real
-  keystrokes into Notepad and reading back the result.
+  (`gfdm ufbd`→আমি জানি), mid-sequence Backspace-then-retype, Ctrl+A/Ctrl+C
+  passing through untouched, the no-console/beep build, and Ctrl+Alt+Q
+  quitting cleanly — all confirmed working by driving real keystrokes into
+  Notepad and reading back the result.
 - **Not yet tested on Linux or macOS** — same algorithm and libraries, but
   needs a real run on each OS to confirm. Please report back what happened
   (exact keys pressed vs. what came out) if anything's off.
@@ -85,9 +94,16 @@ a MinGW-w64 distribution on `PATH` (needed for `dlltool.exe`, e.g.
   group (`sudo usermod -aG input $USER`, then log out/in).
 - Assumes physical US QWERTY key positions for punctuation, same assumption
   Bijoy/Avro make.
-- No system tray icon yet (console window only) — the toggle notification
-  is a printed line, not a tray tooltip. Deferred to keep tonight's build
-  scope realistic; a tray icon is a reasonable fast-follow.
+- No system tray icon yet — toggle feedback is a beep (one=ON, two=OFF)
+  since there's no window to show a status in, and quitting is a separate
+  hotkey (Ctrl+Alt+Q) rather than a tray menu. A proper tray icon (status +
+  right-click Exit) is a reasonable fast-follow; deferred tonight because it
+  needs its own message-loop integration alongside the keyboard hook's.
+  Errors that would normally print to a console go to `bijoy52-typer.log`
+  next to the executable instead.
+- On non-Windows, the beep is currently a no-op (`MessageBeep` is a Windows
+  API) — toggling is silent on Linux/macOS until a cross-platform beep is
+  wired up.
 - No auto-flush-on-pause timer (the Obsidian plugin has a 450ms one) — a
   half-typed sequence stays buffered (nothing shown) until the next
   keystroke resolves it. In normal typing this rarely matters since words
