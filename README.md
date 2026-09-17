@@ -9,7 +9,16 @@ three OSes instead of only Windows.
 
 ## Usage
 
-1. Run the binary (double-click it, or from a terminal).
+1. Download the binary from
+   [Releases](https://github.com/harunrhimu/bijoy52-typer/releases) and run
+   it (double-click it, or from a terminal). **Windows will show a
+   "Windows protected your PC" SmartScreen warning** — this is expected for
+   any new, unsigned executable from an "unknown publisher," not a sign
+   something's wrong. Getting rid of it requires a paid code-signing
+   certificate, which no solo/open-source first release has. Click **"More
+   info" → "Run anyway"**. If you want to verify the download wasn't
+   tampered with, check its SHA256 hash against the one listed on the
+   release page.
 2. Press **Ctrl+Alt+B** to toggle বাংলা (Bijoy52) mode on/off. The console
    prints which mode you're in.
 3. Type Bijoy52 keystrokes in any app, exactly like the other versions of
